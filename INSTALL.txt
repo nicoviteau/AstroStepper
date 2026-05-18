@@ -1,0 +1,25 @@
+=============================
+ASTROSTEPPER - INSTALLATION
+=============================
+
+METHOD 1 (RECOMMENDED)
+----------------------
+- Open Arduino IDE
+- Go to: Sketch → Include Library → Add ZIP Library
+- Select the AstroStepper ZIP package
+
+METHOD 2 (MANUAL)
+-----------------
+- Extract the ZIP archive
+- Copy the folder to:
+  Documents/Arduino/libraries/
+- Restart Arduino IDE
+
+VERIFICATION
+------------
+
+The library should appear in:
+Sketch → Include Library
+
+Then load the example:
+Examples → AstroStepper → basic_tracking
