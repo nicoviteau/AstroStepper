@@ -1,0 +1,111 @@
+=============================
+ASTROSTEPPER - USER GUIDE
+=============================
+
+---------------------------------
+1. OVERVIEW
+---------------------------------
+AstroStepper is a high-precision stepper control library designed for
+astronomical tracking applications.
+
+Core concepts:
+- DDS (Direct Digital Synthesis) → precise speed generation
+- Acceleration ramping → smooth transitions
+- Backlash compensation → mechanical play correction
+
+---------------------------------
+2. PIN CONFIGURATION
+---------------------------------
+Function:
+  AstroStepper::setPins(stepPin, dirPin, enablePin)
+
+Example:
+  AstroStepper::setPins(11, 8, 7);
+
+Meaning:
+- STEP    → step pulse output pin
+- DIR     → direction pin
+- ENABLE  → driver enable pin
+
+IMPORTANT:
+- ENABLE is ACTIVE LOW
+  LOW  → motor ENABLED
+  HIGH → motor DISABLED
+
+---------------------------------
+3. SPEED CONTROL
+---------------------------------
+Function:
+  AstroStepper::setSpeed(float speed)
+
+Unit:
+  steps per second (SIGNED)
+
+Behavior:
+- Positive → forward motion
+- Negative → reverse motion
+
+Example:
+  AstroStepper::setSpeed(800);
+  AstroStepper::setSpeed(-800);
+
+---------------------------------
+4. ACCELERATION
+---------------------------------
+Function:
+  AstroStepper::setAcceleration(float accel)
+
+Unit:
+  steps per second²
+
+Example:
+  AstroStepper::setAcceleration(100);
+
+---------------------------------
+5. BACKLASH COMPENSATION
+---------------------------------
+Function:
+  AstroStepper::setBacklash(int32_t steps)
+
+---------------------------------
+6. ENABLE / DISABLE
+---------------------------------
+Functions:
+  AstroStepper::enable();
+  AstroStepper::disable();
+
+---------------------------------
+7. SPEED FEEDBACK
+---------------------------------
+Functions:
+  float getTargetSpeed();
+  float getCurrentSpeed();
+
+---------------------------------
+8. REQUIRED INITIALIZATION ORDER
+---------------------------------
+1. setPins()
+2. setAcceleration()
+3. setBacklash()
+4. setSpeed()
+
+---------------------------------
+9. MINIMAL EXAMPLE
+---------------------------------
+void setup()
+{
+  AstroStepper::setPins(11,8,7);
+  AstroStepper::setAcceleration(100);
+  AstroStepper::setBacklash(40);
+  AstroStepper::setSpeed(800);
+}
+
+void loop() {}
+
+---------------------------------
+10. NOTES
+---------------------------------
+- Speed is signed
+- ENABLE active LOW
+- ISR = 16 kHz
+- AVR only
