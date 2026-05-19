@@ -4,7 +4,7 @@
 
 #include <Arduino.h>
 
-#define ASTROSTEPPER_VERSION "2.3.3"
+#define ASTROSTEPPER_VERSION "2.4.0"
 
 /*
  * =============================================================
