@@ -24,7 +24,7 @@ Bibliothèque de contrôle haute précision pour moteurs pas à pas Arduino (AVR
 
 ## 🔭 Vue d'ensemble
 
-**AstroStepper** est une bibliothèque Arduino spécialisée pour le contrôle haute précision de moteurs pas à pas dans les applications astronomiques. Elle utilise un contrôle déterministe basé sur une minuterie avec une stabilité exceptionnelle, garantissant un suivi astronomique fluide et précis.
+**AstroStepper** est une bibliothèque Arduino spécialisée pour le contrôle haute précision de moteurs pas à pas dans les applications astronomiques. Elle utilise un contrôle déterministe basé sur timer2 avec une grande stabilité pour un suivi astronomique fluide et précis.
 
 ### Cas d'usage
 - 📡 Télescopes équatoriaux
@@ -38,13 +38,13 @@ Bibliothèque de contrôle haute précision pour moteurs pas à pas Arduino (AVR
 ## ✨ Caractéristiques principales
 
 ### Performance
-- **Génération de pas DDS** : Technologie Direct Digital Synthesis pour une précision extrême
+- **Génération de pas DDS** : Technologie Direct Digital Synthesis pour une bonne précision
 - **Rampe d'accélération** : Démarrage et arrêt fluides sans à-coups
 - **Compensation du jeu** : Compense automatiquement le jeu mécanique
 - **Interruption haute fréquence** : ISR 16 kHz pour une stabilité maximale
 
 ### Fiabilité
-- ✅ Contrôle déterministe basé sur minuterie
+- ✅ Contrôle déterministe basé sur timer2
 - ✅ Stabilité élevée pour le suivi long terme
 - ✅ Gestion optimale des ressources CPU
 - ✅ Support des cartes Arduino AVR
