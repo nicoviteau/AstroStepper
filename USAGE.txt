@@ -1,111 +1,882 @@
-=============================
-ASTROSTEPPER - USER GUIDE
-=============================
+=====================================
+         ASTROSTEPPER - USER GUIDE
+         Version 2.4.0
+=====================================
 
 ---------------------------------
 1. OVERVIEW
 ---------------------------------
-AstroStepper is a high-precision stepper control library designed for
-astronomical tracking applications.
 
-Core concepts:
-- DDS (Direct Digital Synthesis) → precise speed generation
-- Acceleration ramping → smooth transitions
-- Backlash compensation → mechanical play correction
+AstroStepper is a high-precision stepper motor control library for Arduino AVR
+microcontrollers, specialized in astronomical tracking applications.
+
+KEY TECHNOLOGIES:
+
+• DDS (Direct Digital Synthesis)
+  → Phase accumulation algorithm for jitter-free step generation
+  → No cumulative frequency error
+  → Extreme precision for long-term tracking
+
+• Acceleration Ramping
+  → Smooth speed transitions
+  → Programmable acceleration/deceleration
+  → Prevents mechanical stress and missed steps
+
+• Backlash Compensation
+  → Automatic detection of direction reversals
+  → Configurable pre-movement to eliminate mechanical play
+  → Kinematic control during compensation phase
+
+HARDWARE REQUIREMENTS:
+
+• Arduino AVR Board (Uno, Mega, Nano, etc.)
+• Stepper Motor Driver (STEP/DIR/ENABLE compatible)
+• 16 MHz clock accuracy (standard Arduino boards)
+
+NOT SUPPORTED:
+
+• Non-AVR platforms (ARM-based Arduino boards)
+• Non-standard clock frequencies
 
 ---------------------------------
 2. PIN CONFIGURATION
 ---------------------------------
+
 Function:
-  AstroStepper::setPins(stepPin, dirPin, enablePin)
+  AstroStepper::setPins(uint8_t stepPin, uint8_t dirPin, uint8_t enablePin)
+
+Purpose:
+  Configure which Arduino pins control the stepper motor driver
+
+Parameters:
+  stepPin   (0-13) → STEP pulse output (to driver STEP input)
+  dirPin    (0-13) → Direction signal (to driver DIR input)
+  enablePin (0-13) → Driver enable control (to driver ENABLE input)
 
 Example:
   AstroStepper::setPins(11, 8, 7);
 
-Meaning:
-- STEP    → step pulse output pin
-- DIR     → direction pin
-- ENABLE  → driver enable pin
+Pin Meanings:
 
-IMPORTANT:
-- ENABLE is ACTIVE LOW
-  LOW  → motor ENABLED
-  HIGH → motor DISABLED
+  STEP PIN:
+    • Generates pulse train that commands motor steps
+    • One pulse = one motor step
+    • Pulse width: controlled by ISR timing (~62.5 µs at 16 kHz)
+
+  DIRECTION PIN:
+    • Controls motor direction
+    • HIGH  → Forward direction (positive speed)
+    • LOW   → Reverse direction (negative speed)
+    • Updated BEFORE speed changes to prevent glitches
+
+  ENABLE PIN (CRITICAL - ACTIVE LOW):
+    • Controls power delivery to motor
+    • LOW  (0V)  → Motor ENABLED (receiving power)
+    • HIGH (5V)  → Motor DISABLED (standby mode, minimal power)
+    • Pre-asserted in setSpeed() and enable()
+    • Deasserted only with disable() call
+
+IMPORTANT CONSTRAINTS:
+
+  • Each pin must be unique (no sharing)
+  • All pins must be valid GPIO pins for your board
+  • setPins() MUST be called first during initialization
+  • Pins are configured as OUTPUT automatically
+  • Call setPins() only once per session (reconfiguring resets hardware)
+
+TIMING CONSIDERATIONS:
+
+  • ISR Frequency: 16 kHz (Timer2 CTC mode)
+  • Timer Prescaler: 64
+  • Timer Compare Value: 15 (for 16 MHz AVR)
+  • ISR Period: 62.5 µs
+  • Maximum Step Rate: ~8000 steps/second
+  • Step Pulse Width: ~62.5 µs (controller-dependent)
 
 ---------------------------------
 3. SPEED CONTROL
 ---------------------------------
-Function:
-  AstroStepper::setSpeed(float speed)
 
-Unit:
-  steps per second (SIGNED)
+Function:
+  AstroStepper::setSpeed(float speed_steps_s)
+
+Purpose:
+  Set the target motor speed with smooth acceleration profile
+
+Parameter:
+  speed_steps_s (SIGNED FLOAT)
+    • Unit: steps per second
+    • Range: -8000 to +8000 (typical)
+    • Precision: 0.015 steps/sec (Q16.16 fixed-point)
+
+Speed Convention (IMPORTANT):
+
+  POSITIVE VALUES (+):
+    • Forward rotation
+    • Direction pin → HIGH
+    • Example: AstroStepper::setSpeed(1000.5);
+
+  NEGATIVE VALUES (-):
+    • Reverse rotation
+    • Direction pin → LOW
+    • Example: AstroStepper::setSpeed(-500.0);
+
+  ZERO (0.0):
+    • Motor coasting to stop
+    • Decelerates at acceleration rate
+    • Direction pin state unchanged
+    • Example: AstroStepper::setSpeed(0.0);
 
 Behavior:
-- Positive → forward motion
-- Negative → reverse motion
 
-Example:
-  AstroStepper::setSpeed(800);
-  AstroStepper::setSpeed(-800);
+  • Motor will NOT immediately jump to target speed
+  • Instead, it accelerates smoothly toward target at rate set by setAcceleration()
+  • If target is reached, motor maintains that speed indefinitely
+  • Can be called at any time (even during acceleration)
+  • Automatically enables motor on every call
+
+Internal Representation:
+
+  • Speed stored internally in Q16.16 fixed-point format
+  • Integer part: 16 bits (speed magnitude)
+  • Fractional part: 16 bits (fine resolution)
+  • Sign bit: controls direction
+  • Automatic conversion from float to fixed-point on input
+
+Backlash Interaction:
+
+  • During backlash compensation: only direction-compatible commands accepted
+  • Example: if moving forward (+) and reverse (-) requested during backlash,
+    the reverse command is buffered and executed after backlash completes
+  • Same-direction changes are applied immediately
+
+Examples:
+
+  // Forward at 1000 steps/sec, accelerating from current speed
+  AstroStepper::setSpeed(1000.0);
+
+  // Reverse at 500 steps/sec
+  AstroStepper::setSpeed(-500.0);
+
+  // Gentle clockwise tracking at 2.5 steps/sec
+  AstroStepper::setSpeed(2.5);
+
+  // Coast to stop
+  AstroStepper::setSpeed(0.0);
 
 ---------------------------------
-4. ACCELERATION
+4. ACCELERATION CONTROL
 ---------------------------------
+
 Function:
-  AstroStepper::setAcceleration(float accel)
+  AstroStepper::setAcceleration(float accel_steps_s2)
 
-Unit:
-  steps per second²
+Purpose:
+  Set maximum acceleration/deceleration rate for smooth motor ramps
 
-Example:
-  AstroStepper::setAcceleration(100);
+Parameter:
+  accel_steps_s2 (FLOAT)
+    • Unit: steps per second²
+    • Range: 1 to ~1,000,000
+    • Typical range: 1,000 to 10,000 (application dependent)
+    • ALWAYS positive (magnitude is used, sign ignored)
+
+Acceleration Profile:
+
+  • Applied in BOTH directions (acceleration AND deceleration equally)
+  • ISR updates speed once per 62.5 µs (16 kHz rate)
+  • Effective acceleration per ISR cycle: accel / 16000 steps/s²
+
+Effects of Different Values:
+
+  LOW VALUES (100-1000):
+    ✓ Smooth, gradual motion
+    ✓ Reduced mechanical stress
+    ✓ Lower risk of missed steps
+    ✗ Takes longer to reach target speed
+    ✗ Not suitable for fast tracking adjustments
+    Example: 500 = ~0.03 steps/s² per ISR cycle
+
+  MEDIUM VALUES (1000-10000):
+    ✓ Balanced between smoothness and responsiveness
+    ✓ Typical for astronomical tracking
+    ✗ Slight mechanical vibration
+    Example: 5000 = ~0.31 steps/s² per ISR cycle
+
+  HIGH VALUES (10000-100000):
+    ✓ Very responsive to speed changes
+    ✓ Quick ramp-up for slew movements
+    ✗ Significant mechanical stress
+    ✗ Risk of missed steps or motor cogging
+    Example: 50000 = ~3.1 steps/s² per ISR cycle
+
+Calculation: Ramp Time
+
+  If accelerating from 0 to target_speed with constant acceleration:
+    time_to_target = target_speed / acceleration
+
+  Example:
+    target_speed = 1000 steps/s
+    acceleration = 5000 steps/s²
+    time_to_reach = 1000 / 5000 = 0.2 seconds
+
+Internal Format:
+
+  • Stored in Q16.16 fixed-point, normalized to ISR period
+  • Conversion: accel_fp = accel * (1 / 16000) * 65536
+
+Critical Usage:
+
+  ⚠️ Must be called BEFORE setBacklash()
+  ⚠️ Affects BOTH normal and backlash compensation modes
+  ⚠️ Should match mechanical system capabilities
+
+Examples:
+
+  // Very smooth for precision tracking (astronomical applications)
+  AstroStepper::setAcceleration(100.0);
+
+  // Balanced profile
+  AstroStepper::setAcceleration(5000.0);
+
+  // Aggressive ramp (not recommended for astronomy)
+  AstroStepper::setAcceleration(50000.0);
 
 ---------------------------------
 5. BACKLASH COMPENSATION
 ---------------------------------
+
 Function:
-  AstroStepper::setBacklash(int32_t steps)
+  AstroStepper::setBacklash(int32_t steps, float vmax, float accel)
+
+Purpose:
+  Configure automatic mechanical backlash elimination when reversing direction
+
+Background: What is Backlash?
+
+  When a stepper motor reverses direction, gears and mechanical linkages often
+  have slack (backlash). The motor continues moving in the old direction briefly
+  before engaging in the new direction. This causes positioning errors.
+
+  Solution: Move slightly in the OPPOSITE direction first to "take up" the slack,
+  then execute the user-requested motion.
+
+Parameters:
+
+  steps (int32_t)
+    • Backlash compensation distance in motor steps
+    • Range: 0 to ~1,000,000
+    • Typical range: 10 to 100 steps
+    • 0 = Disable backlash compensation entirely
+    • Unit: individual motor steps
+    • Example: 50 steps = move 50 steps opposite before normal motion
+
+  vmax (float)
+    • Maximum speed during backlash compensation phase
+    • Unit: steps per second
+    • Range: 1 to ~1000 (must be less than normal operating speed)
+    • Typical: 50-200 steps/sec
+    • Keeps compensation motion gentle and controlled
+    • Prevents sudden mechanical shocks
+
+  accel (float)
+    • Acceleration during backlash compensation phase
+    • Unit: steps per second²
+    • Range: 100 to ~10000
+    • Typical: 1000-5000 (smoother than main acceleration)
+    • Separate from main acceleration for fine control
+    • Used in kinematic formula: v² = vend² + 2*A*s
+    • Lower values = smoother transition, takes longer
+
+Backlash Compensation Sequence:
+
+  1. Motor moving forward (+1000 steps/sec)
+  2. User calls setSpeed(-500) → direction reversal detected
+  3. Backlash compensation STARTS:
+     → Motor begins moving backward slowly (up to vmax)
+     → Decelerates using accel parameter
+     → Moves exactly 'steps' motor steps backward
+     → Position error corrected by this reverse motion
+
+  4. Backlash compensation COMPLETES:
+     → Motor seamlessly transitions to user's -500 steps/sec forward
+     → Mechanical slack is now taken up
+     → Subsequent motion is precise
+
+Timing:
+
+  • Backlash compensation time ≈ steps / vmax
+  • Example: 50 steps at 100 steps/sec = 0.5 seconds
+  • During compensation: direction reversals are buffered (not executed)
+  • After compensation: buffered commands execute immediately
+
+Configuration Guidelines:
+
+  • STEPS: Measure mechanical backlash of your mount manually
+    - Slowly rotate in each direction and measure deviation
+    - Use that as your step value
+    - Typical astronomical mounts: 20-100 steps
+
+  • VMAX: Should be much lower than normal operating speed
+    - Example: if tracking at 1000 steps/sec, use vmax=100-200
+    - Too high → jerky compensation, defeats purpose
+    - Too low → compensation takes too long
+
+  • ACCEL: Should be smoother than main acceleration
+    - Example: if main accel=5000, use backlash accel=1000-2000
+    - Prevents mechanical shock during compensation
+    - Must work with vmax to reach smooth profile
+
+Critical Usage:
+
+  ⚠️ Must be called AFTER setAcceleration()
+  ⚠️ Must be called BEFORE setSpeed()
+  ⚠️ Set steps=0 to disable if your mount has no backlash
+
+Examples:
+
+  // Typical mount with ~50 steps of backlash
+  AstroStepper::setBacklash(50, 100.0, 1000.0);
+
+  // Tight mount with minimal backlash
+  AstroStepper::setBacklash(10, 50.0, 500.0);
+
+  // Disable backlash compensation
+  AstroStepper::setBacklash(0, 100.0, 1000.0);
+
+  // Loose mount requiring aggressive compensation
+  AstroStepper::setBacklash(100, 200.0, 2000.0);
 
 ---------------------------------
 6. ENABLE / DISABLE
 ---------------------------------
+
 Functions:
-  AstroStepper::enable();
-  AstroStepper::disable();
+  AstroStepper::enable()
+  AstroStepper::disable()
+
+Purpose:
+  Control motor power delivery through ENABLE pin (active LOW)
+
+enable() - Power ON Motor:
+
+  Actions:
+    • Sets ENABLE pin LOW (0V) → motor power ON
+    • Starts Timer2 in CTC mode (16 kHz ISR)
+    • Sets up TIMER2_COMPA interrupt
+    • Motor begins executing motion profile from setSpeed()
+
+  Side Effects:
+    • Disables all interrupts briefly during setup (cli/sei)
+    • Modifies Timer2 registers
+    • Replaces any existing Timer2 interrupt handler
+
+  Note:
+    • Automatically called by setSpeed()
+    • Safe to call multiple times
+    • Usually not needed in loop() (setSpeed handles it)
+
+disable() - Power OFF Motor:
+
+  Actions:
+    • Sets ENABLE pin HIGH (5V) → motor power OFF
+    • Motor enters standby/sleep mode
+    • Minimal power consumption
+    • Motor DOES NOT stop immediately (inertia coasts)
+    • Target speed remains unchanged (can resume with enable())
+
+  Note:
+    • Does NOT reset speed (call setSpeed(0) to decelerate before disable)
+    • Does NOT stop Timer2 (it continues running)
+    • Safe to call during operation
+
+Usage Pattern:
+
+  // Typical startup
+  void setup() {
+    AstroStepper::setPins(11, 8, 7);
+    AstroStepper::setAcceleration(5000);
+    AstroStepper::setBacklash(50, 100, 1000);
+    AstroStepper::setSpeed(1000);  // Also calls enable()
+    // Motor is now running
+  }
+
+  // Power management
+  if (night_has_ended) {
+    AstroStepper::setSpeed(0);      // Decelerate first
+    delay(1000);                     // Wait for ramp-down
+    AstroStepper::disable();         // Cut power
+  }
+
+  // Resume tracking
+  AstroStepper::enable();            // Restore power
+  AstroStepper::setSpeed(1000);      // Resume motion
 
 ---------------------------------
 7. SPEED FEEDBACK
 ---------------------------------
-Functions:
-  float getTargetSpeed();
-  float getCurrentSpeed();
+
+Function:
+  float AstroStepper::getTargetSpeed()
+
+Purpose:
+  Query the currently-commanded target speed (before acceleration ramp)
+
+Return:
+  • Float: target speed in steps/second (SIGNED)
+  • Positive → forward direction
+  • Negative → reverse direction
+  • Zero → coast-to-stop
+
+Note:
+  • This is what the USER requested with setSpeed()
+  • NOT the actual current speed (if ramping, current ≠ target)
+  • Useful for debugging and motion monitoring
+
+Example:
+  AstroStepper::setSpeed(1000);
+  float target = AstroStepper::getTargetSpeed();  // Returns 1000.0
+  // Motor may still be at 500 if accelerating
+
+
+Function:
+  float AstroStepper::getCurrentSpeed()
+
+Purpose:
+  Query the actual instantaneous motor speed
+
+Return:
+  • Float: current speed in steps/second (SIGNED)
+  • Positive → moving forward
+  • Negative → moving backward
+  • Zero or near-zero → coasting or stopped
+
+Behavior:
+  • Updated every ISR cycle (62.5 µs)
+  • Reflects current position in acceleration profile
+  • During acceleration/deceleration: current ≠ target
+  • Once target reached: current = target
+
+Difference from getTargetSpeed():
+
+  User calls: setSpeed(1000)
+  
+  Time 0ms:   getCurrentSpeed() = 0      (starting from rest)
+              getTargetSpeed()  = 1000   (what user requested)
+  
+  Time 200ms: getCurrentSpeed() = 1000   (reached target)
+              getTargetSpeed()  = 1000   (unchanged)
+  
+  User calls: setSpeed(-500)
+  
+  Time 200ms: getCurrentSpeed() = 1000   (still positive)
+              getTargetSpeed()  = -500   (new request)
+  
+  Time 400ms: getCurrentSpeed() = 0      (passing through zero)
+              getTargetSpeed()  = -500   (unchanged)
+  
+  Time 500ms: getCurrentSpeed() = -500   (reached new target)
+              getTargetSpeed()  = -500   (unchanged)
+
+Monitoring Example:
+
+  void loop() {
+    float current = AstroStepper::getCurrentSpeed();
+    float target = AstroStepper::getTargetSpeed();
+    
+    if (abs(current - target) < 1.0) {
+      // Reached target speed (within 1 step/sec)
+      Serial.println("Target speed achieved!");
+    }
+  }
 
 ---------------------------------
-8. REQUIRED INITIALIZATION ORDER
+8. INITIALIZATION ORDER (CRITICAL)
 ---------------------------------
-1. setPins()
-2. setAcceleration()
-3. setBacklash()
-4. setSpeed()
+
+AstroStepper MUST be initialized in this EXACT order:
+
+  STEP 1: setPins()
+    └─ Configures hardware pins
+    └─ Sets up port registers for fast I/O
+    └─ MUST be called first
+    └─ Only needs to be called once
+
+  STEP 2: setAcceleration()
+    └─ Sets ramp rate
+    └─ MUST be called before setBacklash()
+    └─ Establishes motion profile shape
+
+  STEP 3: setBacklash()
+    └─ Configures backlash compensation
+    └─ MUST be called after setAcceleration()
+    └─ MUST be called before setSpeed()
+    └─ Can pass 0 to disable if not needed
+
+  STEP 4: setSpeed()
+    └─ Sets target speed and enables motor
+    └─ MUST be called last in init sequence
+    └─ Automatically calls enable()
+    └─ Motor begins moving after this
+
+⚠️ DEVIATION FROM THIS ORDER WILL CAUSE UNDEFINED BEHAVIOR ⚠️
+
+Correct Initialization Template:
+
+  void setup() {
+    Serial.begin(115200);
+    
+    // Step 1
+    AstroStepper::setPins(11, 8, 7);
+    
+    // Step 2
+    AstroStepper::setAcceleration(5000.0);
+    
+    // Step 3
+    AstroStepper::setBacklash(50, 100.0, 1000.0);
+    
+    // Step 4
+    AstroStepper::setSpeed(1000.0);
+    
+    Serial.println("AstroStepper initialized and running!");
+  }
+
+  void loop() {
+    // Motor runs in background via ISR
+    delay(1);
+  }
 
 ---------------------------------
 9. MINIMAL EXAMPLE
 ---------------------------------
-void setup()
-{
-  AstroStepper::setPins(11,8,7);
-  AstroStepper::setAcceleration(100);
-  AstroStepper::setBacklash(40);
-  AstroStepper::setSpeed(800);
-}
 
-void loop() {}
+The simplest working program:
+
+  #include <AstroStepper.h>
+
+  void setup() {
+    // Configuration (order matters!)
+    AstroStepper::setPins(11, 8, 7);              // STEP=11, DIR=8, EN=7
+    AstroStepper::setAcceleration(5000.0);        // 5000 steps/s²
+    AstroStepper::setBacklash(50, 100.0, 1000.0); // 50 steps compensation
+    
+    // Start motor
+    AstroStepper::setSpeed(1000.0);               // 1000 steps/sec forward
+  }
+
+  void loop() {
+    // Motor controlled by ISR - nothing needed here
+    delay(1);
+  }
+
+Expected Result:
+  • Motor begins gentle acceleration toward 1000 steps/sec
+  • Reaches 1000 steps/sec after ~0.2 seconds (depends on acceleration)
+  • Maintains 1000 steps/sec indefinitely
+  • ENABLE pin (7) is LOW (motor powered)
+  • STEP pin (11) pulses at increasing frequency
+  • DIR pin (8) is HIGH (forward direction)
 
 ---------------------------------
-10. NOTES
+10. ADVANCED USAGE
 ---------------------------------
-- Speed is signed
-- ENABLE active LOW
-- ISR = 16 kHz
-- AVR only
+
+ASTRONOMICAL TRACKING EXAMPLE:
+
+  #include <AstroStepper.h>
+
+  // Sidereal rate tracking (Earth rotation compensation)
+  const float SIDEREAL_RATE = 15.0 / 3600.0;  // degrees/second
+  const float STEPS_PER_DEGREE = 200.0;       // Mount-specific calibration
+  const float SIDEREAL_STEPS_S = SIDEREAL_RATE * STEPS_PER_DEGREE;
+
+  void setup() {
+    Serial.begin(115200);
+    
+    AstroStepper::setPins(11, 8, 7);
+    AstroStepper::setAcceleration(1000.0);     // Smooth tracking
+    AstroStepper::setBacklash(40, 50.0, 500.0);
+    
+    // Start sidereal tracking
+    AstroStepper::setSpeed(SIDEREAL_STEPS_S);
+    Serial.println("Sidereal tracking active");
+  }
+
+  void loop() {
+    // Monitor system
+    if (Serial.available()) {
+      String cmd = Serial.readStringUntil('\n');
+      
+      if (cmd == "FASTER") {
+        float current = AstroStepper::getTargetSpeed();
+        AstroStepper::setSpeed(current * 1.1);  // +10%
+      }
+      else if (cmd == "SLOWER") {
+        float current = AstroStepper::getTargetSpeed();
+        AstroStepper::setSpeed(current / 1.1);  // -10%
+      }
+      else if (cmd == "STOP") {
+        AstroStepper::setSpeed(0);
+        delay(1000);  // Wait for deceleration
+        AstroStepper::disable();
+      }
+    }
+    
+    delay(100);
+  }
+
+RAPID POSITIONING EXAMPLE:
+
+  #include <AstroStepper.h>
+
+  void setup() {
+    AstroStepper::setPins(11, 8, 7);
+    AstroStepper::setAcceleration(50000.0);   // Fast ramp
+    AstroStepper::setBacklash(0, 100.0, 500.0);  // No backlash needed
+  }
+
+  void slew_to_position(float target_steps_s) {
+    // Aggressive acceleration profile for slew moves
+    AstroStepper::setSpeed(target_steps_s);
+    
+    // Wait for target reached
+    while (abs(AstroStepper::getCurrentSpeed() - target_steps_s) > 10.0) {
+      delay(10);
+    }
+    
+    Serial.println("Slew complete");
+  }
+
+  void loop() {
+    // Slew forward
+    slew_to_position(5000);
+    delay(2000);
+    
+    // Slew backward
+    slew_to_position(-5000);
+    delay(2000);
+  }
+
+---------------------------------
+11. HARDWARE INTEGRATION
+---------------------------------
+
+TYPICAL DRIVER CONNECTIONS:
+
+  Arduino Pin 11 → Driver STEP
+  Arduino Pin 8  → Driver DIR
+  Arduino Pin 7  → Driver ENABLE
+
+ENABLE PIN SAFETY:
+
+  • MUST be active-LOW compatible driver
+  • Pull-up resistor recommended (~10kΩ to +5V)
+  • Never float the ENABLE pin
+
+POWER REQUIREMENTS:
+
+  • Motor power: separate from Arduino
+  • Use external power supply (not Arduino 5V)
+  • Ground must be common between Arduino and driver
+
+EXAMPLE CIRCUIT:
+
+  Arduino ────┬─────→ [ENABLE] Driver
+              │
+  Arduino ────┼─────→ [DIR] Driver
+              │
+  Arduino ────┼─────→ [STEP] Driver
+              │
+  Arduino ────┴─────→ [GND] Driver
+              
+  [12V Supply] ────→ [POWER+] Driver
+  [GND] ────→ [GND] Driver
+  
+  [Stepper Motor] ←─ [MOTOR A/B] Driver
+
+---------------------------------
+12. TECHNICAL SPECIFICATIONS
+---------------------------------
+
+PERFORMANCE:
+
+  • ISR Frequency: 16 kHz (Timer2 CTC)
+  • ISR Period: 62.5 microseconds
+  • Maximum Step Rate: ~8000 steps/second
+  • Step Pulse Width: ~62.5 microseconds (driver dependent)
+  • Speed Resolution: 0.015 steps/second (Q16.16 fixed-point)
+  • Acceleration Resolution: ~0.002 steps/s² per ISR cycle
+
+PRECISION:
+
+  • DDS Jitter: < 1 ISR period (62.5 µs)
+  • Frequency Accuracy: Determined by crystal oscillator
+  • Phase Accumulator: 32-bit (wraps at 2^32)
+  • No cumulative frequency error
+
+HARDWARE:
+
+  • Platform: Arduino AVR (16 MHz clock)
+  • Timer: Timer2 (8-bit in CTC mode)
+  • Prescaler: 64
+  • Interrupt: TIMER2_COMPA
+  • Port I/O: Direct register access (not digitalWrite)
+
+LIMITATIONS:
+
+  • AVR-only (no ARM support)
+  • Single motor control only
+  • 16 MHz clock assumption (not portable)
+  • Timer2 dedicated (cannot use for PWM)
+  • Interrupts disabled during initialization (~50 µs)
+
+---------------------------------
+13. TROUBLESHOOTING
+---------------------------------
+
+MOTOR NOT MOVING:
+
+  ✓ Check ENABLE pin (should be LOW when enabled)
+  ✓ Verify power to motor driver
+  ✓ Confirm setPins() called before setSpeed()
+  ✓ Check motor connections
+  ✓ Try disable() then enable() to reset
+
+JERKY / IRREGULAR MOTION:
+
+  ✗ Acceleration too high → reduce setAcceleration()
+  ✗ Backlash distance wrong → tune setBacklash() steps
+  ✗ ISR being blocked by other interrupts → check sketch
+
+WRONG DIRECTION:
+
+  ✓ Call setSpeed() with opposite sign
+  ✓ Or swap motor coil connections
+  ✓ Note: negative speed = backward rotation
+
+BACKLASH COMPENSATION NOT WORKING:
+
+  ✓ Check setBacklash(steps > 0) → if 0, compensation disabled
+  ✓ Confirm setBacklash() called BEFORE setSpeed()
+  ✓ Try only changing setSpeed() to negative value
+
+SPEED CHANGES NOT RESPONDING:
+
+  ✓ If during backlash compensation and changing direction:
+    → Command is buffered until backlash completes
+    → Same-direction changes apply immediately
+  ✓ Normal mode: changes apply within 1 ISR cycle (~62.5 µs)
+
+TIMER2 CONFLICTS:
+
+  ✗ PWM on pin 3 or 11 won't work (Timer2 is taken)
+  ✗ Other code using TIMER2_COMPA interrupt won't work
+  → This is intentional (AstroStepper needs Timer2)
+
+LOW TRACKING PRECISION:
+
+  ✓ Reduce acceleration for smoother ramps
+  ✓ Verify motor power supply is stable
+  ✓ Check for loose mechanical connections
+  ✓ Ensure Arduino clock is 16 MHz
+
+---------------------------------
+14. INTERNAL IMPLEMENTATION NOTES
+---------------------------------
+
+For advanced users debugging or extending the library:
+
+SPEED REPRESENTATION:
+
+  • Internally: Q16.16 fixed-point signed format
+  • int32_t with 16 integer bits, 16 fractional bits
+  • Conversion: speed_float * 65536 = speed_fp
+  • Sign bit: directly controls motor direction
+  • Example: 1000.5 steps/s = 0x0F800800 (hex)
+
+DDS ALGORITHM:
+
+  • Phase accumulator: 32-bit unsigned
+  • Increment per ISR cycle: derived from speed
+  • Overflow at 2^32: generates step pulse
+  • Multiple overflows: queue multiple steps
+  • No frequency error accumulation
+
+ACCELERATION RAMP:
+
+  • Simple linear ramp: current_speed += accel_fp or -= accel_fp
+  • Reaches target in: time = (target - current) / accel
+  • Ramping happens once per ISR cycle
+  • Applied symmetrically for acceleration and deceleration
+
+BACKLASH STATE MACHINE:
+
+  States: NORMAL, BACKLASH
+  
+  NORMAL → BACKLASH:
+    • Triggered when direction reverses (sign change in speed)
+    • Backlash_remaining = backlash_steps
+    • Uses kinematic profile: v² = vend² + 2*A*s
+  
+  BACKLASH → NORMAL:
+    • When backlash_remaining reaches 0
+    • Seamlessly transitions to user target speed
+
+TIMER2 SETUP:
+
+  • CTC Mode: Clear on Compare
+  • Prescaler 64: 16MHz / 64 = 250 kHz timer frequency
+  • OCR2A = 15: 250 kHz / 16 = 15.625 kHz ≈ 16 kHz
+  • ISR called at OCR2A match
+
+PORT I/O OPTIMIZATION:
+
+  • Direct port register access instead of digitalWrite()
+  • Bit masks pre-computed in setPins()
+  • Single CPU cycle per I/O operation
+  • Reduces ISR overhead for deterministic timing
+
+---------------------------------
+15. NOTES & WARNINGS
+---------------------------------
+
+⚠️ CRITICAL:
+
+  • Initialization order MUST be: setPins → setAcceleration → 
+    setBacklash → setSpeed
+  • ENABLE pin is ACTIVE LOW (opposite of typical GPIO)
+  • Do not modify Timer2 registers or TIMER2_COMPA interrupt handler
+  • Do not use PWM on pins 3 or 11 (conflicts with Timer2)
+
+⚠️ IMPORTANT:
+
+  • Speed is SIGNED (positive = forward, negative = backward)
+  • Acceleration is always positive (magnitude)
+  • ISR frequency is fixed at 16 kHz (Timer2 dependent)
+  • Arduino MUST run at 16 MHz (not portable to other clock speeds)
+  • Only one AstroStepper instance (static implementation)
+
+⚠️ PERFORMANCE:
+
+  • ISR runs for ~50-100 CPU cycles (depends on system state)
+  • Cannot reliably track speeds above ~8000 steps/second
+  • Backlash compensation adds ~1-2 second delay per reversal
+  • Very high accelerations may cause missed steps on weak motors
+
+⚠️ AVR ONLY:
+
+  • NOT compatible with ARM-based Arduino boards (Due, Zero, etc.)
+  • NOT compatible with non-AVR microcontrollers
+  • Requires <avr/interrupt.h> and direct port access
+  • Timer2 may not exist on all AVR variants
+
+---------------------------------
+
+For technical questions or issues:
+  → Check GitHub: https://github.com/nicoviteau/AstroStepper
+  → Review source code: src/AstroStepper.h, src/AstroStepper.cpp
+  → Consult examples: examples/ directory
+
+Last Updated: May 2026
+Library Version: 2.4.0
+Maintainer: @nicoviteau
