@@ -41,7 +41,7 @@ Bibliothèque de contrôle haute précision pour moteurs pas à pas Arduino (AVR
 - **Génération de pas DDS** : Technologie Direct Digital Synthesis pour une précision extrême
 - **Rampe d'accélération** : Démarrage et arrêt fluides sans à-coups
 - **Compensation du jeu** : Compense automatiquement le jeu mécanique
-- **ISR 16 kHz** : Interruption de service à interruption haute fréquence pour une stabilité maximale
+- **Interruption haute fréquence** : ISR 16 kHz pour une stabilité maximale
 
 ### Fiabilité
 - ✅ Contrôle déterministe basé sur minuterie
@@ -77,15 +77,19 @@ Deux méthodes disponibles :
 ```cpp
 #include <AstroStepper.h>
 
-AstroStepper stepper(10, 11);  // Broches STEP et DIR
-
 void setup() {
-  stepper.begin();
-  stepper.setSpeed(1000);      // Vitesse en pas/seconde
+  // Configuration (ordre critique)
+  AstroStepper::setPins(11, 8, 7);           // STEP=11, DIR=8, ENABLE=7
+  AstroStepper::setAcceleration(5000.0);     // 5000 steps/s²
+  AstroStepper::setBacklash(40, 100.0, 5000.0); // 40 steps, vmax=100 steps/s, accel=5000 steps/s²
+  
+  // Activation
+  AstroStepper::setSpeed(1000.0);            // Cible : 1000 steps/s
+  AstroStepper::enable();                    // Active le moteur
 }
 
 void loop() {
-  stepper.step();              // Effectue un pas
+  // Le moteur fonctionne en arrière-plan via l'ISR
   delay(1);
 }
 ```
@@ -105,12 +109,32 @@ Pour une documentation complète sur l'utilisation, les fonctions disponibles et
 
 | Fonction | Description |
 |----------|-------------|
-| `begin()` | Initialise la bibliothèque |
-| `setSpeed(speed)` | Configure la vitesse en pas/seconde |
-| `setAcceleration(accel)` | Configure l'accélération |
-| `step()` | Exécute un pas |
-| `setDirection(dir)` | Définit la direction |
-| `setBacklash(value)` | Configure la compensation du jeu |
+| `setPins(stepPin, dirPin, enablePin)` | Configure les broches matériel |
+| `setSpeed(speed)` | Configure la vitesse cible (steps/s, signé) |
+| `setAcceleration(accel)` | Configure l'accélération (steps/s²) |
+| `setBacklash(steps, vmax, accel)` | Configure la compensation du jeu |
+| `enable()` | Active le moteur (ENABLE bas) |
+| `disable()` | Désactive le moteur (ENABLE haut) |
+| `getTargetSpeed()` | Récupère la vitesse cible |
+| `getCurrentSpeed()` | Récupère la vitesse actuelle |
+
+### Convention de vitesse (IMPORTANT)
+
+La vitesse est une valeur **signée** :
+- **Positive (+)** → rotation avant (DIR = HIGH)
+- **Négative (-)** → rotation arrière (DIR = LOW)
+- **Zéro (0)** → arrêt avec décélération
+
+### Ordre d'initialisation (CRITIQUE)
+
+L'initialisation doit respecter cet ordre exact :
+
+1. **`setPins()`** → Configuration des broches
+2. **`setAcceleration()`** → Rampe d'accélération
+3. **`setBacklash()`** → Compensation du jeu
+4. **`setSpeed()`** → Vitesse cible
+
+Tout écart peut causer un comportement indéfini.
 
 ---
 
@@ -118,7 +142,7 @@ Pour une documentation complète sur l'utilisation, les fonctions disponibles et
 
 ### Compatibilité matérielle
 - **Plateformes** : Arduino AVR (Uno, Mega, Nano, etc.)
-- **Fréquence ISR** : 16 kHz
+- **Fréquence ISR** : 16 kHz (Timer2)
 - **Précision** : Microseconde
 
 ### Configuration requise
@@ -131,14 +155,29 @@ Pour une documentation complète sur l'utilisation, les fonctions disponibles et
 - Générateur de pas DDS pour une précision extrême
 - Compensation automatique du jeu mécanique
 
+### Configuration des broches
+
+```
+setPins(stepPin, dirPin, enablePin)
+
+Exemple :
+  stepPin   = 11  → Sortie d'impulsions STEP
+  dirPin    = 8   → Sortie de direction DIR
+  enablePin = 7   → Activation du driver (ACTIVE BAS)
+
+ATTENTION :
+- ENABLE est ACTIVE LOW
+  - LOW (0V)  → Moteur ACTIVÉ
+  - HIGH (5V) → Moteur DÉSACTIVÉ
+```
+
 ---
 
 ## 💡 Exemples
 
 Plusieurs exemples sont inclus dans la bibliothèque :
 
-- **basic_tracking** : Suivi astronomique simple
-- *D'autres exemples peuvent être disponibles*
+- **basic_tracking** : Démonstration du suivi astronomique avec accélération et compensation du jeu
 
 Consultez le dossier `examples/` pour plus d'informations.
 
@@ -176,4 +215,3 @@ Cette bibliothèque est destinée à un usage éducatif et amateur. Pour les app
 
 **Dernière mise à jour** : Mai 2026  
 **Mainteneur** : [@nicoviteau](https://github.com/nicoviteau)
-
