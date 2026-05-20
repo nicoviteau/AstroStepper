@@ -1,25 +1,92 @@
-=============================
-ASTROSTEPPER - INSTALLATION
-=============================
+================================================================================
+                    ASTROSTEPPER - GUIDE D'INSTALLATION
+================================================================================
 
-METHOD 1 (RECOMMENDED)
-----------------------
-- Open Arduino IDE
-- Go to: Sketch → Include Library → Add ZIP Library
-- Select the AstroStepper ZIP package
+📋 TABLE DES MATIÈRES
+────────────────────────────────────────────────────────────────────────────────
+1. Prérequis
+2. Installation automatique (RECOMMANDÉE)
+3. Installation manuelle
+4. Vérification de l'installation
+5. Premiers pas
+6. Dépannage
 
-METHOD 2 (MANUAL)
------------------
-- Extract the ZIP archive
-- Copy the folder to:
-  Documents/Arduino/libraries/
-- Restart Arduino IDE
 
-VERIFICATION
-------------
+📦 PRÉREQUIS
+────────────────────────────────────────────────────────────────────────────────
+• Arduino IDE (version 1.8.0 ou supérieure)
+• Une carte Arduino compatible
+• Le fichier ZIP d'AstroStepper
 
-The library should appear in:
-Sketch → Include Library
 
-Then load the example:
-Examples → AstroStepper → basic_tracking
+🚀 MÉTHODE 1 - INSTALLATION AUTOMATIQUE (RECOMMANDÉE)
+────────────────────────────────────────────────────────────────────────────────
+
+Cette méthode est la plus simple et la plus fiable.
+
+Étapes :
+1. Ouvrez l'Arduino IDE
+2. Allez à : Sketch → Include Library → Add .ZIP Library
+3. Sélectionnez le fichier AstroStepper.zip
+4. Attendez la fin du processus (quelques secondes)
+5. L'installation est terminée !
+
+
+🔧 MÉTHODE 2 - INSTALLATION MANUELLE
+────────────────────────────────────────────────────────────────────────────────
+
+Pour une installation manuelle :
+
+1. Extrayez le fichier ZIP d'AstroStepper
+2. Accédez au dossier des bibliothèques Arduino :
+   - Windows : Documents/Arduino/libraries/
+   - Mac : Documents/Arduino/libraries/
+   - Linux : ~/Arduino/libraries/
+3. Copiez le dossier AstroStepper dans ce répertoire
+4. Redémarrez l'Arduino IDE
+5. L'installation est terminée !
+
+
+✅ VÉRIFICATION DE L'INSTALLATION
+────────────────────────────────────────────────────────────────────────────────
+
+Pour vérifier que la bibliothèque est correctement installée :
+
+1. Ouvrez l'Arduino IDE
+2. Vérifiez que la bibliothèque apparaît dans :
+   Sketch → Include Library
+   (vous devriez voir "AstroStepper" dans la liste)
+
+
+📚 PREMIERS PAS
+────────────────────────────────────────────────────────────────────────────────
+
+Charger un exemple :
+1. Allez à : File → Examples → AstroStepper
+2. Sélectionnez l'exemple "basic_tracking"
+3. Compilez et chargez sur votre carte Arduino
+4. Ouvrez le moniteur série pour voir les résultats
+
+
+❓ DÉPANNAGE
+────────────────────────────────────────────────────────────────────────────────
+
+Problème : La bibliothèque n'apparaît pas dans la liste
+Solution :
+- Vérifiez que le dossier est bien dans Documents/Arduino/libraries/
+- Redémarrez complètement l'Arduino IDE
+- Vérifiez le nom du dossier (doit être "AstroStepper" sans espaces)
+
+Problème : Erreur de compilation
+Solution :
+- Vérifiez que votre carte Arduino est correctement sélectionnée
+- Vérifiez les dépendances éventuelles dans la documentation
+- Consultez les exemples pour la configuration appropriée
+
+Problème : Installation impossible
+Solution :
+- Assurez-vous que Arduino IDE est à jour
+- Désinstallez et réinstallez la bibliothèque
+- Contactez le support via GitHub Issues
+
+================================================================================
