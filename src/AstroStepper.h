@@ -71,7 +71,7 @@ public:
 
     static void setSpeed(float speed_steps_s);
     static void setAcceleration(float accel_steps_s2);
-    static void setBacklash(int32_t steps);
+    static void setBacklash(int32_t steps, float vmax, float accel);
 
     static float getTargetSpeed();
     static float getCurrentSpeed();
