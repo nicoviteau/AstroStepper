@@ -24,7 +24,7 @@ Bibliothèque de contrôle haute précision pour moteurs pas à pas Arduino (AVR
 
 ## 🔭 Vue d'ensemble
 
-**AstroStepper** est une bibliothèque Arduino spécialisée pour le contrôle haute précision de moteurs pas à pas dans les applications astronomiques. Elle utilise un contrôle déterministe basé sur timer2 avec une grande stabilité pour un suivi astronomique fluide et précis.
+**AstroStepper** est une bibliothèque Arduino spécialisée pour le contrôle haute précision de moteurs pas à pas dans les applications astronomiques. Elle utilise un contrôle déterministe basé sur des interruptions à haute fréquence (16 kHz) pour générer des impulsions de pas sans erreur cumulative.
 
 ### Cas d'usage
 - 📡 Télescopes équatoriaux
@@ -38,7 +38,7 @@ Bibliothèque de contrôle haute précision pour moteurs pas à pas Arduino (AVR
 ## ✨ Caractéristiques principales
 
 ### Performance
-- **Génération de pas DDS** : Technologie Direct Digital Synthesis pour une bonne précision
+- **Génération de pas DDS** : Technologie Direct Digital Synthesis pour une précision extrême
 - **Rampe d'accélération** : Démarrage et arrêt fluides sans à-coups
 - **Compensation du jeu** : Compense automatiquement le jeu mécanique
 - **Interruption haute fréquence** : ISR 16 kHz pour une stabilité maximale
@@ -72,7 +72,7 @@ Deux méthodes disponibles :
 
 ## 🚀 Démarrage rapide
 
-### Exemple basique
+### Exemple basique minimal
 
 ```cpp
 #include <AstroStepper.h>
@@ -94,10 +94,22 @@ void loop() {
 }
 ```
 
-### Charger les exemples
-1. **File → Examples → AstroStepper**
-2. Sélectionnez `basic_tracking` pour commencer
-3. Compilez et chargez sur votre carte
+### Charger l'exemple complet
+
+L'exemple **basic_tracking** inclus dans la bibliothèque démontre :
+
+- ✅ Configuration étape par étape avec explicitations
+- ✅ 6 phases de démonstration dans `setup()`
+- ✅ Sortie sérielle détaillée via Serial Monitor (115200 baud)
+- ✅ Alternance avant/arrière avec compensation du jeu automatique
+- ✅ Monitoring en temps réel des vitesses cible et actuelles
+- ✅ Fonctions optionnelles prêtes à activer (contrôle interactif, monitoring)
+
+**Comment charger :**
+1. **File → Examples → AstroStepper → basic_tracking**
+2. Compilez et chargez sur votre carte
+3. Ouvrez Serial Monitor (115200 baud) pour voir la démonstration
+4. Observez le moteur effectuer les 6 phases de la séquence
 
 ---
 
@@ -175,11 +187,24 @@ ATTENTION :
 
 ## 💡 Exemples
 
-Plusieurs exemples sont inclus dans la bibliothèque :
+### Exemples inclus dans la bibliothèque
 
-- **basic_tracking** : Démonstration du suivi astronomique avec accélération et compensation du jeu
+#### **basic_tracking** (recommandé pour débuter)
+Démonstration complète et interactive du suivi astronomique :
+- Configuration progressive étape par étape
+- 6 phases d'exécution dans setup() avec descriptions
+- Sortie sérielle détaillée (Serial Monitor à 115200 baud)
+- Compensation du jeu automatique lors des inversions
+- Monitoring en temps réel des vitesses
+- Fonctions optionnelles pour étendue future
 
-Consultez le dossier `examples/` pour plus d'informations.
+**À découvrir :**
+- Voir comment le moteur accélère graduellement
+- Observer la compensation du jeu lors des changements de direction
+- Comprendre l'ordre critique d'initialisation
+- Analyser les vitesses réelles via Serial Monitor
+
+Consultez le fichier [examples/basic_tracking/basic_tracking.ino](examples/basic_tracking/basic_tracking.ino) pour le code source complet et commenté.
 
 ---
 
@@ -208,7 +233,7 @@ Cette bibliothèque est destinée à un usage éducatif et amateur. Pour les app
 ## 📞 Support
 
 - 📖 Consultez la [documentation](USAGE.txt)
-- 📋 Vérifiez les [exemples](examples/)
+- 📋 Testez l'[exemple basic_tracking](examples/basic_tracking/basic_tracking.ino)
 - 🐛 Signalez les bugs via les [issues GitHub](https://github.com/nicoviteau/AstroStepper/issues)
 
 ---
