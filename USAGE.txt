@@ -578,7 +578,46 @@ Expected Result:
   • DIR pin (8) is HIGH (forward direction)
 
 ---------------------------------
-10. ADVANCED USAGE
+10. COMPLETE EXAMPLE (RECOMMENDED FOR LEARNING)
+---------------------------------
+
+For a comprehensive, well-commented example that demonstrates all features,
+see the included examples/basic_tracking/basic_tracking.ino file:
+
+FILE LOCATION:
+  examples/basic_tracking/basic_tracking.ino
+
+FEATURES:
+  ✓ Fully commented source code with detailed explanations
+  ✓ Parameterized configuration (easy to adjust)
+  ✓ 6 demonstration phases with educational value:
+      1. Slow forward ramp (acceleration visible)
+      2. Speed increase (smooth acceleration)
+      3. Direction reversal (backlash compensation triggered)
+      4. Slow reverse motion (deceleration)
+      5. Complete stop (coast-to-stop)
+      6. Restart forward (reacceleration)
+  ✓ Serial output to monitor motor behavior (115200 baud)
+  ✓ Real-time speed monitoring (target vs. actual)
+  ✓ Optional helper functions for interactive control
+  ✓ Best practices for initialization and usage
+
+HOW TO USE:
+  1. File → Examples → AstroStepper → basic_tracking
+  2. Adjust parameters (ACCELERATION, BACKLASH_STEPS, etc.) for your hardware
+  3. Upload to your Arduino
+  4. Open Serial Monitor (Tools → Serial Monitor, 115200 baud)
+  5. Watch the demonstration and read the detailed output
+  6. Modify parameters to understand their effects
+
+This example is excellent for:
+  • Learning how to use AstroStepper properly
+  • Tuning parameters for your specific motor and mechanics
+  • Understanding the initialization order
+  • Debugging your own code
+
+---------------------------------
+11. ADVANCED USAGE
 ---------------------------------
 
 ASTRONOMICAL TRACKING EXAMPLE:
@@ -658,7 +697,7 @@ RAPID POSITIONING EXAMPLE:
   }
 
 ---------------------------------
-11. HARDWARE INTEGRATION
+12. HARDWARE INTEGRATION
 ---------------------------------
 
 TYPICAL DRIVER CONNECTIONS:
@@ -695,7 +734,7 @@ EXAMPLE CIRCUIT:
   [Stepper Motor] ←─ [MOTOR A/B] Driver
 
 ---------------------------------
-12. TECHNICAL SPECIFICATIONS
+13. TECHNICAL SPECIFICATIONS
 ---------------------------------
 
 PERFORMANCE:
@@ -731,7 +770,7 @@ LIMITATIONS:
   • Interrupts disabled during initialization (~50 µs)
 
 ---------------------------------
-13. TROUBLESHOOTING
+14. TROUBLESHOOTING
 ---------------------------------
 
 MOTOR NOT MOVING:
@@ -780,8 +819,15 @@ LOW TRACKING PRECISION:
   ✓ Check for loose mechanical connections
   ✓ Ensure Arduino clock is 16 MHz
 
+SERIAL MONITOR OUTPUT NOT APPEARING:
+
+  ✓ Check baud rate: must be 115200 baud
+  ✓ Verify Arduino IDE Serial Monitor is open
+  ✓ Check USB cable connection
+  ✓ Check board/port selection in Arduino IDE
+
 ---------------------------------
-14. INTERNAL IMPLEMENTATION NOTES
+15. INTERNAL IMPLEMENTATION NOTES
 ---------------------------------
 
 For advanced users debugging or extending the library:
@@ -837,7 +883,7 @@ PORT I/O OPTIMIZATION:
   • Reduces ISR overhead for deterministic timing
 
 ---------------------------------
-15. NOTES & WARNINGS
+16. NOTES & WARNINGS
 ---------------------------------
 
 ⚠️ CRITICAL:
@@ -874,8 +920,9 @@ PORT I/O OPTIMIZATION:
 
 For technical questions or issues:
   → Check GitHub: https://github.com/nicoviteau/AstroStepper
-  → Review source code: src/AstroStepper.h, src/AstroStepper.cpp
-  → Consult examples: examples/ directory
+  → Review examples: examples/ directory
+  → Try basic_tracking: examples/basic_tracking/basic_tracking.ino
+  → Check source code: src/AstroStepper.h, src/AstroStepper.cpp
 
 Last Updated: May 2026
 Library Version: 2.4.0
