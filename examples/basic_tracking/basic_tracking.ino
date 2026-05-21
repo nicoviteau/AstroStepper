@@ -72,7 +72,7 @@ const uint8_t ENABLE_PIN = 7;       // ENABLE signal → driver
 // Range: typical 100-50000 (higher = faster response, more mechanical stress)
 // For smooth astronomical tracking: use 100-5000
 // For rapid positioning: use 10000-50000
-const float ACCELERATION = 100.0;
+const float ACCELERATION = 200.0;
 
 // Backlash compensation distance (mechanical slack in gears)
 // Unit: motor steps
@@ -82,28 +82,23 @@ const float ACCELERATION = 100.0;
 //   - Normal mount: 30-80 steps
 //   - Loose mount: 100+ steps
 // Measure manually by rotating slowly in each direction and noting the offset
-const int32_t BACKLASH_STEPS = 40;
+const int32_t BACKLASH_STEPS = 200;
 
 // Maximum speed during backlash compensation phase
 // Unit: steps/second
-// Should be much lower than normal operating speed to ensure gentle motion
-// Typical: 50-200 steps/sec
 // Too high: jerky compensation, defeats the purpose
 // Too low: takes too long to complete compensation
-const float BACKLASH_VMAX = 50.0;
+const float BACKLASH_VMAX = 700.0;
 
 // Acceleration during backlash compensation phase
 // Unit: steps/second²
-// Should be smoother than main acceleration to prevent mechanical shock
-// Typical: 1/5 to 1/10 of main acceleration
-// Example: if main accel is 5000, use 500-1000 here
-const float BACKLASH_ACCEL = 500.0;
+const float BACKLASH_ACCEL = 1000.0;
 
 // Demo speed profiles - modify these to test different behaviors
-const float SPEED_SLOW    = 200.0;   // Slow tracking (steps/second)
+const float SPEED_SLOW    = 80.0;   // Slow tracking (steps/second)
 const float SPEED_MEDIUM  = 500.0;   // Medium speed
-const float SPEED_FAST    = 1000.0;  // Fast speed
-const float SPEED_REVERSE = -1000.0; // Reverse direction (negative = backward)
+const float SPEED_FAST    = 700.0;  // Fast speed
+const float SPEED_REVERSE = -700.0; // Reverse direction (negative = backward)
 
 
 /*
@@ -114,10 +109,10 @@ const float SPEED_REVERSE = -1000.0; // Reverse direction (negative = backward)
  * Delay durations for demonstration phases (in milliseconds).
  * Increase these for slower observation, decrease for faster testing.
  */
-const unsigned long DELAY_RAMP_UP   = 3000;  // Hold at each speed (ramp phase)
-const unsigned long DELAY_REVERSE   = 4000;  // Extended time to see reverse motion
-const unsigned long DELAY_STOP      = 2000;  // Pause at stop
-const unsigned long DELAY_SEQUENCE  = 5000;  // Loop cycle timing
+const unsigned long DELAY_RAMP_UP   = 10000;  // Hold at each speed (ramp phase)
+const unsigned long DELAY_REVERSE   = 5000;  // Extended time to see reverse motion
+const unsigned long DELAY_STOP      = 5000;  // Pause at stop
+const unsigned long DELAY_SEQUENCE  = 10000;  // Loop cycle timing
 
 
 /*
@@ -303,12 +298,12 @@ void loop()
     // === Continuous alternating motion sequence ===
     
     // Forward motion phase
-    Serial.println(">>> LOOP: Forward fast");
+    Serial.println(">>> LOOP: Forward slow");
     Serial.print("    Target: ");
-    Serial.print(SPEED_FAST);
+    Serial.print(SPEED_SLOW);
     Serial.println(" steps/s");
     
-    AstroStepper::setSpeed(SPEED_FAST);
+    AstroStepper::setSpeed(SPEED_SLOW);
     
     // Hold forward motion for specified duration
     delay(DELAY_SEQUENCE);
@@ -321,10 +316,10 @@ void loop()
     // Reverse motion phase
     Serial.println(">>> LOOP: Reverse fast (backlash compensation triggers)");
     Serial.print("    Target: ");
-    Serial.print(SPEED_REVERSE);
+    Serial.print(-SPEED_SLOW);
     Serial.println(" steps/s");
     
-    AstroStepper::setSpeed(SPEED_REVERSE);
+    AstroStepper::setSpeed(-SPEED_SLOW);
     
     // Hold reverse motion for specified duration
     delay(DELAY_SEQUENCE);
