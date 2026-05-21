@@ -1,5 +1,29 @@
 
 /*
+ * MIT License
+ *
+ * Copyright (c) 2026 Nicolas V.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/*
  * =============================================================
  * ASTROSTEPPER IMPLEMENTATION
  * =============================================================
@@ -65,7 +89,7 @@ static uint8_t enMask;              /* Bit mask for enable pin on its port */
 /* DDS scale factor for converting speed to phase increment
    SCALE_FP = (65536 / F_ISR) * 65536 = (2^16 / F_ISR) * 2^16
    This maps speed in steps/sec to phase accumulator increment
-*/
+ */
 #define SCALE_FP ((uint32_t)((65536.0f / F_ISR) * 65536.0f))
 
 // ===================== STATE MACHINE =====================
@@ -86,13 +110,13 @@ static volatile int32_t current_speed_fp = 0;          /* Actual current speed (
 /* Acceleration for each ISR cycle (Q16.16 format)
    accel_fp = accel_steps_per_sec² / (F_ISR / 65536)
    Default: 100 steps/sec² = 6553.6 LSBs per ISR cycle
-*/
+ */
 static volatile int32_t accel_fp = (int32_t)(100.0f * (1.0f / F_ISR) * 65536.0f);
 
 /* Acceleration for backlash compensation (Q8.8 format, doubled)
    Used in approximation: v² = vend² + 2*A*s
    Factor of 2 is pre-multiplied to avoid extra computation
-*/
+ */
 static volatile int16_t accel_x2_Q8_8 = (int16_t)(BACKLASH_ACCEL_MAX << 9);
 
 // ===================== BACKLASH COMPENSATION STATE =====================
@@ -108,7 +132,7 @@ static volatile int8_t changed_dir = 0;                /* Flag: direction change
    - phase: 32-bit accumulator (wraps at 2^32)
    - increment: How much phase increases per ISR cycle
    - Overflow triggers step pulse
-*/
+ */
 static volatile uint32_t phase = 0;         /* Phase accumulator */
 static volatile uint32_t increment = 0;     /* Phase increment per ISR cycle (derived from speed) */
 
@@ -117,7 +141,7 @@ static volatile uint32_t increment = 0;     /* Phase increment per ISR cycle (de
    ISR alternates between: STEP_HIGH → STEP_LOW
    step_pending: queue of pending steps (up to 255)
    step_state: current state (0=low, 1=high)
-*/
+ */
 static volatile uint8_t step_pending = 0;   /* Number of pending step pulses */
 static volatile uint8_t step_state = 0;     /* Current step pulse state (0=LOW, 1=HIGH) */
 
@@ -437,7 +461,7 @@ void AstroStepper::isrHandler()
     /* --- Optimized 32-bit multiplication: (64-bit result) * 32-bit ÷ 2^16 ---
        Standard formula:  increment = (abs_speed * SCALE_FP) >> 16
        
-       Optimized to use 16×32→32 multiplies (faster on AVR than full 32×32):
+       Optimized to use 16×32->32 multiplies (faster on AVR than full 32×32):
        - Split abs_speed into xH (high 16 bits) and xL (low 16 bits)
        - Compute: (xH << 16) * SCALE_FP + xL * SCALE_FP
        - Combine results with appropriate shifts
